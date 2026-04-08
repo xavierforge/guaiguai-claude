@@ -1,0 +1,189 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.label }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macOS-ARM
+            os: macos-latest
+            target: aarch64-apple-darwin
+          - label: macOS-Intel
+            os: macos-latest
+            target: x86_64-apple-darwin
+          - label: Windows-x64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-cargo-
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
+
+      - name: Verify frontend assets exist
+        shell: bash
+        run: |
+          if [ ! -f ui/index.html ]; then
+            echo "ui/index.html is missing"
+            exit 1
+          fi
+
+      - name: Build Tauri app
+        run: cargo tauri build --target ${{ matrix.target }}
+        working-directory: src-tauri
+
+      # ---- Collect & rename artifacts -----------------------------------
+
+      - name: Collect macOS artifacts
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          # .dmg can live under bundle/dmg or bundle/macos depending on Tauri version
+          DMG=""
+          for dir in \
+            "src-tauri/target/${{ matrix.target }}/release/bundle/dmg" \
+            "src-tauri/target/${{ matrix.target }}/release/bundle/macos"; do
+            if [ -d "$dir" ]; then
+              found=$(find "$dir" -maxdepth 1 -type f -name '*.dmg' | head -n1 || true)
+              if [ -n "$found" ]; then
+                DMG="$found"
+                break
+              fi
+            fi
+          done
+
+          if [ -z "$DMG" ]; then
+            echo "No .dmg produced. Bundle tree:"
+            find "src-tauri/target/${{ matrix.target }}/release/bundle" -type f || true
+            exit 1
+          fi
+
+          if [ "${{ matrix.label }}" = "macOS-ARM" ]; then
+            OUT="dist/guaiguai-claude-macOS-ARM.dmg"
+          else
+            OUT="dist/guaiguai-claude-macOS-Intel.dmg"
+          fi
+          cp "$DMG" "$OUT"
+          echo "Produced: $OUT"
+
+      - name: Collect Windows artifacts
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          MSI_DIR="src-tauri/target/${{ matrix.target }}/release/bundle/msi"
+          NSIS_DIR="src-tauri/target/${{ matrix.target }}/release/bundle/nsis"
+
+          MSI=""
+          if [ -d "$MSI_DIR" ]; then
+            MSI=$(find "$MSI_DIR" -maxdepth 1 -type f -name '*.msi' | head -n1 || true)
+          fi
+          EXE=""
+          if [ -d "$NSIS_DIR" ]; then
+            EXE=$(find "$NSIS_DIR" -maxdepth 1 -type f -name '*.exe' | head -n1 || true)
+          fi
+
+          if [ -z "$MSI" ] && [ -z "$EXE" ]; then
+            echo "No Windows installer produced. Bundle tree:"
+            find "src-tauri/target/${{ matrix.target }}/release/bundle" -type f || true
+            exit 1
+          fi
+
+          if [ -n "$MSI" ]; then
+            cp "$MSI" "dist/guaiguai-claude-Windows-x64.msi"
+            echo "Produced: dist/guaiguai-claude-Windows-x64.msi"
+          fi
+          if [ -n "$EXE" ]; then
+            cp "$EXE" "dist/guaiguai-claude-Windows-x64-setup.exe"
+            echo "Produced: dist/guaiguai-claude-Windows-x64-setup.exe"
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: guaiguai-claude-${{ matrix.label }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Publish Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten artifact tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-files
+          find artifacts -type f \( -name '*.dmg' -o -name '*.msi' -o -name '*.exe' \) \
+            -exec cp {} release-files/ \;
+          ls -la release-files
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: 乖乖Claude ${{ github.ref_name }}
+          files: release-files/*
+          body: |
+            ## 下載
+
+            | 平台 | 檔案 |
+            |------|------|
+            | macOS (Apple Silicon) | `.dmg` (ARM) |
+            | macOS (Intel) | `.dmg` (Intel) |
+            | Windows | `.msi` 安裝檔 或 `.exe` 安裝檔 |
+
+            ### macOS 使用者注意
+
+            首次開啟可能會被 Gatekeeper 擋住，請到「系統設定 → 隱私權與安全性」點擊「仍要打開」。
+
+            鍵盤模擬功能需要在「系統設定 → 隱私權與安全性 → 輔助使用」中授權。
+
+            ### 使用方式
+
+            1. 安裝後啟動，系統托盤會出現圖示
+            2. 點擊托盤圖示啟動
+            3. 右鍵托盤圖示可切換模式（🪔 三炷香 / ✋ 愛的小手）
+            4. 三炷香：上下移動滑鼠拜拜觸發
+            5. 愛的小手：左右揮動滑鼠觸發
