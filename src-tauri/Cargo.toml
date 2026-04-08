@@ -1,6 +1,6 @@
 [package]
 name = "guaiguai-claude"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "乖乖Claude — 三炷香催 Claude Code 加速"
 license = "MIT"

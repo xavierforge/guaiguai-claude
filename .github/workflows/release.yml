@@ -9,6 +9,11 @@ on:
 permissions:
   contents: write
 
+# Opt into Node.js 24 for all JavaScript actions so the Node 20 deprecation
+# warnings go away (GitHub is forcing this default on 2026-06-02 anyway).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     name: Build (${{ matrix.label }})
@@ -177,9 +182,19 @@ jobs:
 
             ### macOS 使用者注意
 
-            首次開啟可能會被 Gatekeeper 擋住，請到「系統設定 → 隱私權與安全性」點擊「仍要打開」。
+            本專案未加入 Apple Developer Program，因此 `.app` 沒有經過 notarization。首次開啟時 macOS 可能會顯示：
 
-            鍵盤模擬功能需要在「系統設定 → 隱私權與安全性 → 輔助使用」中授權。
+            > 「乖乖Claude」已損毀，無法打開。你應該將其丟到「垃圾桶」。
+
+            這**不是真的損毀**，而是 Gatekeeper 對未 notarize + 下載時附加的隔離屬性（quarantine）的誤導訊息。解法是在終端機執行一次這個指令把隔離屬性拿掉：
+
+            ```bash
+            xattr -cr /Applications/乖乖Claude.app
+            ```
+
+            之後就可以正常開啟。
+
+            鍵盤模擬功能另外需要在「系統設定 → 隱私權與安全性 → 輔助使用」中授權本 app。
 
             ### 使用方式
 

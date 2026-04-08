@@ -25,6 +25,12 @@ cargo install tauri-cli --version "^2"
 
 macOS 額外需要：在「系統設定 → 隱私權與安全性 → 輔助使用」中允許本 app（用於鍵盤模擬）。觸發時會短暫使用系統剪貼簿（pbcopy → Cmd+V）。
 
+如果從 GitHub Releases 下載 `.dmg` 安裝後開啟顯示「已損毀，無法打開」，這是未 notarize 的 app 被 Gatekeeper 擋下的誤導訊息，執行一次下面的指令拿掉 quarantine 屬性即可：
+
+```bash
+xattr -cr /Applications/乖乖Claude.app
+```
+
 ## 開發
 
 ```bash
