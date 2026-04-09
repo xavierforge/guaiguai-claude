@@ -69,7 +69,7 @@ unsafe fn send_key_combo(keys: &[VIRTUAL_KEY]) {
 
     // Key downs
     for &vk in keys {
-        inputs.push(make_key_input(vk, 0));
+        inputs.push(make_key_input(vk, KEYBD_EVENT_FLAGS(0)));
     }
     // Key ups (reverse order)
     for &vk in keys.iter().rev() {

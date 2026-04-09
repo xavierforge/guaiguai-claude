@@ -5,8 +5,10 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, RunEvent,
+    AppHandle, Emitter, Manager,
 };
+#[cfg(target_os = "macos")]
+use tauri::RunEvent;
 
 const INCENSE_PHRASES: &[&str] = &[
     "/btw 拜託一次成功",
@@ -187,10 +189,11 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 
-    app.run(|app_handle, event| {
+    app.run(|_app_handle, _event| {
         // Clicking the Dock icon (macOS) → show the overlay
-        if let RunEvent::Reopen { .. } = event {
-            show_overlay_at_cursor(app_handle);
+        #[cfg(target_os = "macos")]
+        if let RunEvent::Reopen { .. } = _event {
+            show_overlay_at_cursor(_app_handle);
         }
     });
 }
