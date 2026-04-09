@@ -58,7 +58,7 @@ jobs:
         # instead of compiling from source (~5min on Windows → seconds).
         uses: taiki-e/install-action@v2
         with:
-          tool: tauri-cli@^2
+          tool: tauri-cli@2.8.1
 
       - name: Verify frontend assets exist
         shell: bash
