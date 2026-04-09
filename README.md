@@ -70,7 +70,7 @@ cargo tauri build
 未來若從 GitHub Releases 下載 `.dmg` 安裝後開啟顯示「已損毀，無法打開」，這是未 notarize 的 app 被 Gatekeeper 擋下的誤導訊息，執行一次下面的指令拿掉 quarantine 屬性即可：
 
 ```bash
-xattr -cr /Applications/乖乖Claude.app
+xattr -cr /Applications/GuaiguaiClaude.app
 ```
 
 ## 專案結構

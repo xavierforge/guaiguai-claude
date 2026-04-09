@@ -53,8 +53,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.target }}-cargo-
 
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2" --locked
+      - name: Install Tauri CLI (prebuilt binary)
+        # taiki-e/install-action downloads a prebuilt tauri-cli binary
+        # instead of compiling from source (~5min on Windows → seconds).
+        uses: taiki-e/install-action@v2
+        with:
+          tool: tauri-cli@^2
 
       - name: Verify frontend assets exist
         shell: bash
@@ -189,7 +193,7 @@ jobs:
             這**不是真的損毀**，而是 Gatekeeper 對未 notarize + 下載時附加的隔離屬性（quarantine）的誤導訊息。解法是在終端機執行一次這個指令把隔離屬性拿掉：
 
             ```bash
-            xattr -cr /Applications/乖乖Claude.app
+            xattr -cr /Applications/GuaiguaiClaude.app
             ```
 
             之後就可以正常開啟。
