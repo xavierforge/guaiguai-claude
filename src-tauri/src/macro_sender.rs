@@ -46,9 +46,13 @@ end tell"#;
 }
 
 #[cfg(target_os = "windows")]
-pub fn send_macro(text: &str) -> Result<(), String> {
-    use windows::Win32::UI::Input::KeyboardAndMouse::*;
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP,
+    KEYEVENTF_UNICODE, VIRTUAL_KEY, VK_MENU, VK_RETURN, VK_TAB,
+};
 
+#[cfg(target_os = "windows")]
+pub fn send_macro(text: &str) -> Result<(), String> {
     unsafe {
         // Type the message as Unicode (handles CJK / emoji without IME issues)
         for ch in text.chars() {
