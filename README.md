@@ -1,6 +1,6 @@
 # 乖乖Claude 🪔
 
-> 用三炷香拜、或用愛的小手巴，催 Claude Code 加速。觸發後會自動貼上 `/btw ...` 催促語到你上一個視窗（通常是跑著 Claude Code 的終端機）。
+> 用三炷香拜拜、或用愛的小手疼愛，催 Claude Code 加速。觸發後會自動貼上 `/btw ...` 催促語到 Claude Code 上。
 
 基於 [badclaude](https://github.com/GitFrog1111/badclaude) 的精神，把鞭子換成三炷香 / 愛的小手，Electron 換成 Tauri (Rust)。
 
@@ -14,64 +14,62 @@
 - 🪔 多螢幕感知，overlay 永遠開在游標所在的螢幕
 - 🪔 點擊 overlay 任意處即可隱藏
 
-## 取得方式
+## 下載
 
-> **預編譯的 `.dmg` / `.msi` 發佈還在建置中**，目前請從原始碼自行 build。
+到 [Releases 頁面](https://github.com/xavierforge/guaiguai-claude/releases) 抓對應平台的檔案:
 
-本專案前端只有一份純靜態 `ui/index.html`，**完全不使用 npm / Node.js 生態系**。這是刻意的選擇——最近 npm 頻繁爆出供應鏈投毒事件（惡意套件、被劫持的 transitive dependency 等），一個幾百行的小玩具沒有理由去背負幾千個 npm 依賴的風險。整個工具鏈只需要 Rust + Tauri CLI。
+| 平台 | 檔案 |
+|------|------|
+| macOS (Apple Silicon) | `guaiguai-claude-macOS-ARM.dmg` |
+| macOS (Intel) | `guaiguai-claude-macOS-Intel.dmg` |
+| Windows | `guaiguai-claude-Windows-x64.msi`(或 `...-setup.exe`) |
 
-## 前置需求
+### macOS 首次開啟
 
-### 1. Rust（透過 rustup 安裝）
-
-macOS / Linux：
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
-
-Windows：到 <https://rustup.rs/> 下載 `rustup-init.exe` 執行。
-
-安裝完成後重新開一個終端機，確認 `cargo --version` 可以執行（Rust 1.70 以上皆可）。
-
-### 2. Tauri CLI v2
+本專案沒加入 Apple Developer Program,`.app` 沒有 notarize。首次打開時 Gatekeeper 會跳「『GuaiguaiClaude』已損毀，無法打開」，這不是真的壞掉,而是 Gatekeeper 對未 notarize + 下載附加 quarantine 屬性的誤導訊息。在終端機執行一次:
 
 ```bash
-cargo install tauri-cli --version "^2" --locked
+xattr -cr /Applications/GuaiguaiClaude.app
 ```
 
-### 3. 平台額外需求
+之後就能正常開啟。
 
-- **macOS**：Xcode Command Line Tools（`xcode-select --install`）
-- **Windows**：Visual Studio Build Tools 或完整 VS（C++ build tools）
-- 其他系統依賴可參考 [Tauri 官方 prerequisites](https://v2.tauri.app/start/prerequisites/)
+接著到「系統設定 → 隱私權與安全性 → 輔助使用」把本 app 打勾(鍵盤模擬需要)。第一次觸發時還會跳出自動化權限提示,要求允許控制「System Events」,也按允許。觸發催促時會短暫使用系統剪貼簿(AppleScript 寫入 → Cmd+V 貼上)。
 
-## 開發模式（即時熱重載）
+### Windows 首次開啟
+
+`.msi` 未簽署,SmartScreen 會擋一次，點「更多資訊 → 仍要執行」即可。
+
+## 從原始碼 build
+
+本專案前端只有一份純靜態 `ui/index.html`,**完全不使用 npm / Node.js 生態系**。這是刻意的選擇，最近 npm 頻繁爆出供應鏈投毒事件(惡意套件、被劫持的 transitive dependency 等),一個幾百行的小玩具沒有理由去背負幾千個 npm 依賴的風險。整個工具鏈只需要 Rust + Tauri CLI。
+
+### 前置需求
+
+1. **Rust** — 透過 [rustup](https://rustup.rs/) 安裝(macOS/Linux 用 `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`;Windows 下載 `rustup-init.exe`)。Rust 1.70 以上皆可。
+2. **Tauri CLI v2** — `cargo install tauri-cli --version "^2" --locked`
+3. **平台工具鏈**:
+   - macOS:Xcode Command Line Tools(`xcode-select --install`)
+   - Windows:Visual Studio Build Tools 或完整 VS(C++ build tools)
+   - 其他系統依賴可參考 [Tauri 官方 prerequisites](https://v2.tauri.app/start/prerequisites/)
+
+### 開發模式(即時熱重載)
 
 ```bash
 cd guaiguai-claude
 cargo tauri dev
 ```
 
-## 打包成安裝檔
+### 打包成安裝檔
 
 ```bash
 cd guaiguai-claude
 cargo tauri build
 ```
 
-產出路徑：
-- macOS: `src-tauri/target/release/bundle/dmg/*.dmg`（也可以直接跑 `src-tauri/target/release/bundle/macos/*.app`）
+產出路徑:
+- macOS: `src-tauri/target/release/bundle/dmg/*.dmg`(也可以直接跑 `src-tauri/target/release/bundle/macos/*.app`)
 - Windows: `src-tauri/target/release/bundle/msi/*.msi`、`src-tauri/target/release/bundle/nsis/*.exe`
-
-## 執行時的作業系統權限
-
-**macOS** 需要在「系統設定 → 隱私權與安全性 → 輔助使用」中允許本 app，鍵盤模擬才會生效。觸發催促時會短暫使用系統剪貼簿（pbcopy → Cmd+V）。
-
-未來若從 GitHub Releases 下載 `.dmg` 安裝後開啟顯示「已損毀，無法打開」，這是未 notarize 的 app 被 Gatekeeper 擋下的誤導訊息，執行一次下面的指令拿掉 quarantine 屬性即可：
-
-```bash
-xattr -cr /Applications/GuaiguaiClaude.app
-```
 
 ## 專案結構
 
