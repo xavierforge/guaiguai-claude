@@ -54,84 +54,63 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 
 #[cfg(target_os = "windows")]
 pub fn send_macro(text: &str) -> Result<(), String> {
-    unsafe {
-        // Type the message as Unicode (handles CJK / emoji without IME issues)
-        for ch in text.chars() {
-            send_char(ch);
-        }
+    // Build one single batch of INPUT events covering every character in the
+    // phrase plus the final Enter press, and dispatch them in a single
+    // SendInput call. Calling SendInput once per character (the previous
+    // approach) leaked timing to the target app's message loop: Notepad and
+    // other receivers were dropping and duplicating characters under load,
+    // which manifested as garbled phrases with a stray `,` or missing chars.
+    //
+    // A single SendInput batch is guaranteed by Windows to be delivered as an
+    // uninterrupted stream, which is what we want.
+    let mut inputs: Vec<INPUT> = Vec::with_capacity(text.chars().count() * 2 + 2);
 
-        // Enter
-        send_key_press(VK_RETURN);
+    for ch in text.encode_utf16() {
+        // For supplementary-plane characters we'd push two (surrogate) inputs
+        // per Rust `char`; `encode_utf16` already splits them for us, so each
+        // 16-bit unit becomes a single keydown + keyup pair.
+        inputs.push(unicode_input(ch, false));
+        inputs.push(unicode_input(ch, true));
+    }
+
+    // Trailing Enter, as a real VK_RETURN press (not Unicode) so terminals
+    // that read raw key events treat it as a line submit, not a literal char.
+    inputs.push(vk_input(VK_RETURN, false));
+    inputs.push(vk_input(VK_RETURN, true));
+
+    unsafe {
+        SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
     }
     Ok(())
 }
 
 #[cfg(target_os = "windows")]
-unsafe fn send_key_combo(keys: &[VIRTUAL_KEY]) {
-    use windows::Win32::UI::Input::KeyboardAndMouse::*;
-
-    let mut inputs: Vec<INPUT> = Vec::new();
-
-    // Key downs
-    for &vk in keys {
-        inputs.push(make_key_input(vk, KEYBD_EVENT_FLAGS(0)));
+fn unicode_input(code_unit: u16, key_up: bool) -> INPUT {
+    let mut flags = KEYEVENTF_UNICODE;
+    if key_up {
+        flags |= KEYEVENTF_KEYUP;
     }
-    // Key ups (reverse order)
-    for &vk in keys.iter().rev() {
-        inputs.push(make_key_input(vk, KEYEVENTF_KEYUP));
-    }
-
-    SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
-}
-
-#[cfg(target_os = "windows")]
-unsafe fn send_key_press(vk: VIRTUAL_KEY) {
-    use windows::Win32::UI::Input::KeyboardAndMouse::*;
-    let inputs = [
-        make_key_input(vk, KEYBD_EVENT_FLAGS(0)),
-        make_key_input(vk, KEYEVENTF_KEYUP),
-    ];
-    SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
-}
-
-#[cfg(target_os = "windows")]
-unsafe fn send_char(ch: char) {
-    use windows::Win32::UI::Input::KeyboardAndMouse::*;
-    let inputs = [
-        INPUT {
-            r#type: INPUT_KEYBOARD,
-            Anonymous: INPUT_0 {
-                ki: KEYBDINPUT {
-                    wVk: VIRTUAL_KEY(0),
-                    wScan: ch as u16,
-                    dwFlags: KEYEVENTF_UNICODE,
-                    time: 0,
-                    dwExtraInfo: 0,
-                },
+    INPUT {
+        r#type: INPUT_KEYBOARD,
+        Anonymous: INPUT_0 {
+            ki: KEYBDINPUT {
+                wVk: VIRTUAL_KEY(0),
+                wScan: code_unit,
+                dwFlags: flags,
+                time: 0,
+                dwExtraInfo: 0,
             },
         },
-        INPUT {
-            r#type: INPUT_KEYBOARD,
-            Anonymous: INPUT_0 {
-                ki: KEYBDINPUT {
-                    wVk: VIRTUAL_KEY(0),
-                    wScan: ch as u16,
-                    dwFlags: KEYEVENTF_UNICODE | KEYEVENTF_KEYUP,
-                    time: 0,
-                    dwExtraInfo: 0,
-                },
-            },
-        },
-    ];
-    SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
+    }
 }
 
 #[cfg(target_os = "windows")]
-fn make_key_input(
-    vk: windows::Win32::UI::Input::KeyboardAndMouse::VIRTUAL_KEY,
-    flags: windows::Win32::UI::Input::KeyboardAndMouse::KEYBD_EVENT_FLAGS,
-) -> windows::Win32::UI::Input::KeyboardAndMouse::INPUT {
-    use windows::Win32::UI::Input::KeyboardAndMouse::*;
+fn vk_input(vk: VIRTUAL_KEY, key_up: bool) -> INPUT {
+    let flags = if key_up {
+        KEYEVENTF_KEYUP
+    } else {
+        KEYBD_EVENT_FLAGS(0)
+    };
     INPUT {
         r#type: INPUT_KEYBOARD,
         Anonymous: INPUT_0 {
@@ -147,12 +126,21 @@ fn make_key_input(
 }
 
 #[cfg(target_os = "windows")]
+unsafe fn send_key_combo(keys: &[VIRTUAL_KEY]) {
+    let mut inputs: Vec<INPUT> = Vec::new();
+    for &vk in keys {
+        inputs.push(vk_input(vk, false));
+    }
+    for &vk in keys.iter().rev() {
+        inputs.push(vk_input(vk, true));
+    }
+    SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
+}
+
+#[cfg(target_os = "windows")]
 pub fn alt_tab() {
     unsafe {
-        send_key_combo(&[
-            windows::Win32::UI::Input::KeyboardAndMouse::VK_MENU,
-            windows::Win32::UI::Input::KeyboardAndMouse::VK_TAB,
-        ]);
+        send_key_combo(&[VK_MENU, VK_TAB]);
     }
 }
 
