@@ -12,12 +12,12 @@ use tauri::RunEvent;
 
 const INCENSE_PHRASES: &[&str] = &[
     "/btw 拜託一次成功",
-    "/btw Claude 保佑，別噴 Error",
-    "/btw 南無加速菩薩，速速完工",
-    "/btw 功德無量，加速加速",
-    "/btw 善哉善哉，請給我正確程式碼",
+    "/btw Claude 保佑, 別噴 Error",
+    "/btw 南無加速菩薩, 速速完工",
+    "/btw 功德無量, 加速加速",
+    "/btw 善哉善哉, 請給我正確程式碼",
     "/btw 這次一定過",
-    "/btw 施主，快點",
+    "/btw 施主, 快點",
 ];
 
 const SLAPPER_PHRASES: &[&str] = &[
