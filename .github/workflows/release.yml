@@ -68,13 +68,17 @@ jobs:
             exit 1
           fi
 
-      - name: Clean stale app artifacts
+      - name: Clean stale app and bundle artifacts
         # The cargo cache (via restore-keys fallback) may restore a target/
-        # directory from a previous version. Cargo's fingerprinting does not
-        # always detect changes to tauri.conf.json (read by build.rs), so
-        # clean just the project crate to force a rebuild while keeping all
-        # dependency artifacts cached.
-        run: cargo clean -p guaiguai-claude
+        # directory from a previous version, including both the compiled
+        # binary AND the final bundle outputs (MSI/DMG). Cargo's
+        # fingerprinting does not always detect tauri.conf.json changes,
+        # and Tauri's bundler skips if the output already exists. Clean
+        # both the project crate and the bundle directory.
+        shell: bash
+        run: |
+          cargo clean -p guaiguai-claude
+          rm -rf "target/${{ matrix.target }}/release/bundle"
         working-directory: src-tauri
 
       - name: Build Tauri app
